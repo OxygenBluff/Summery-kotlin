@@ -13,12 +13,12 @@ Summery strives to deliver a smooth and aesthetically pleasing Juice browsing, c
 
 --- 
 
-##Tech Stack & Architecture
+## Tech Stack & Architecture
 
 The project is built using the **MVVM (Model-View-ViewModel)** architecture pattern keeping the codebase modular and more maintainable.
 
 | Component | Technology used | Brief description | 
-|:---| |:---| |:---| 
+| :--- | :--- | :--- |
 | **UI Layer** | Jetpack Compose | a declarative framework with custom and re-usable elements.
 | **Networking** | Retrofit & OkHttp | REST API client implementation with interceptor based token injection. |
 | **Security** | AndroidX Security | Jetpack Security EncryptedSharedPreferences for safe token storage. |
