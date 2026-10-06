@@ -19,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -78,8 +80,18 @@ fun LoginScreen(
         //home screen now..BY managed by the viewmodel
         if(navigateToHome){
             delay(600)
+            //clear ittt
+            authViewModel.clearStatusMessage()
             onNavigateToHomeScreen()
             authViewModel.onNavigationHandled() //reset to false
+
+        }
+    }
+    //what if not naviagate to home
+    //-> DISPOSABLE EFFECT LMAO -> runs whenerver the screens leaves !
+    DisposableEffect(Unit) {
+        onDispose {
+            authViewModel.clearStatusMessage()
         }
     }
 
@@ -91,7 +103,10 @@ fun LoginScreen(
         //=>while loading inially -> fades in -> spinner sits there
         //WHEN timer hits -> IT IS TOGLLED TO FALSE
         //oh that's the exist
-        ScreenTransition(){
+        ScreenTransition(
+            delayMillis = 30,
+            withSpinner = false
+        ){
 
             Column(
                 modifier = Modifier
@@ -200,8 +215,11 @@ fun LoginScreen(
                     } else {
                         Text(
                             text = "Log in",
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 1.sp
+                            style = TextStyle(
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.5.sp,
+                                fontSize = 16.sp
+                            )
                         )
                     }
 

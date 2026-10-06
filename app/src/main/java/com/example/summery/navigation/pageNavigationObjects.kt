@@ -16,9 +16,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.AddCard
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalRippleConfiguration
@@ -40,9 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.example.summery.network.ProductResponseDTO
 import com.example.summery.ui.components.white
 import com.example.summery.ui.components.yellow
 import kotlinx.serialization.Serializable
@@ -54,13 +52,27 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ProductDetailsDestination(
-    val product: ProductResponseDTO
+    val productId: Long
 )
 
 //placeholders
 @Serializable object CartDestionation
-@Serializable object placeHolderDestination1
-@Serializable object placeHolderDestination2
+@Serializable object BranchesDestination
+@Serializable object AccountDestination
+
+@Serializable
+data class BranchDestination(
+    val branchId: Long
+)
+
+@Serializable object OrderDestination
+
+//time for Part 2 of the app!
+//SUB SCREENS of the account screen..
+@Serializable object MyOrdersScreen
+
+@Serializable object MyInformationScreen
+@Serializable object MyAddressesScreen
 
 
 //sealed or Enum ?
@@ -69,8 +81,8 @@ sealed class BottomBarItem(
 ){
     object Home: BottomBarItem("Home",Icons.Filled.Home, HomeDestination)
     object Cart: BottomBarItem("Cart",Icons.Filled.ShoppingCart, CartDestionation)
-    object placeHolder1: BottomBarItem("plhldr1",Icons.Filled.AddCard, placeHolderDestination1)
-    object placeHolder2: BottomBarItem("Account",Icons.Filled.AccountCircle, placeHolderDestination2)
+    object Branches: BottomBarItem("Branches",Icons.Filled.Store, BranchesDestination)
+    object Account: BottomBarItem("Account",Icons.Filled.AccountCircle, AccountDestination)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,8 +93,8 @@ fun bottomNavBar(
     val items = listOf(
         BottomBarItem.Home,
         BottomBarItem.Cart,
-        BottomBarItem.placeHolder1,
-        BottomBarItem.placeHolder2
+        BottomBarItem.Branches,
+        BottomBarItem.Account
     )
 
     NavigationBar(
@@ -125,6 +137,7 @@ fun bottomNavBar(
                     ),
 
                     onClick = {
+                        /*
                         if (!isSelected) {
                             navController.navigate(item.destination) {
                                 popUpTo(navController.graph.findStartDestination().id) {
@@ -134,6 +147,14 @@ fun bottomNavBar(
                                 restoreState = true
                             }
                         }
+
+                         */
+                        //changed, just pop one in the stack bruh
+
+                        navController.navigate(item.destination) {
+                            launchSingleTop = true // no duplication
+                        }
+                        //TODO research how this affects memory more
                     }
 
 
@@ -143,6 +164,80 @@ fun bottomNavBar(
         }
     }
 }
+
+
+
+/*
+@Composable
+fun ProductBottomNavBar(
+    navController : NavController,
+    quantity: Int,
+    onQuantityChange: (Int) -> Unit, //the lambda -> pass qte up to parent
+    onAddToCart: () -> Unit
+){
+    Row(
+        modifier=Modifier
+            .fillMaxWidth()
+            .background(Color.Black.copy(0.8f))
+            .padding(horizontal=30.dp, vertical=4.dp)
+            .clip(RoundedCornerShape(42.dp))
+            .height(65.dp),
+            //.navigationBarsPadding(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ){
+        Row(
+            modifier=Modifier,
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            //quantity adjuster thingy -> text field but numbers + triangles ?
+            CustomTextField(
+                value = quantity.toString(),
+                onValueChange = {
+                    it.toIntOrNull()?.let { quantity ->
+                        if (quantity > 0) onQuantityChange(quantity)
+                    }
+                },
+                onSearchAction = {},
+                placeholder = "1",
+                modifier = Modifier.width(50.dp),
+                isPasswordField = false,
+                isSearchField = false,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+
+            IconButton(onClick = { onQuantityChange(quantity + 1) }) {
+                Icon(Icons.Filled.Add, contentDescription = null, tint = white)
+            }
+
+            IconButton(onClick = { onQuantityChange(quantity - 1) }) {
+                Icon(Icons.Filled.Remove, contentDescription = null, tint = white)
+            }
+
+        }
+
+        //button
+        Button(
+            onClick = onAddToCart,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Black,
+                contentColor = Color.Yellow
+            )
+        ) {
+            Text(
+                "Add to Cart",
+                color = yellow,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+    }
+}
+
+ */
+//scrapped it :D
 
 //the pagination indicator thing
 @Composable

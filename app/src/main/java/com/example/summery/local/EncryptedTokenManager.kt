@@ -3,6 +3,9 @@ package com.example.summery.local
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 //dataStore + encryped sahred preferences actually
 class EncryptedTokenManager(context: Context){
@@ -43,8 +46,18 @@ class EncryptedTokenManager(context: Context){
     fun getRefreshToken(): String? = sharedPreferences.getString("refresh_token",null)
 
 
+    private val _loggeddOutEvent = MutableSharedFlow<Unit>(
+        extraBufferCapacity=1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val loggedOutEvent = _loggeddOutEvent.asSharedFlow()
+
+
     //log out ! = clear all tokens
+    //go back to login, how to signal this ? EMIT A SHARED FLOW
     fun clearTokens(){
         sharedPreferences.edit().clear().apply()
+
+        _loggeddOutEvent.tryEmit(Unit)
     }
 }

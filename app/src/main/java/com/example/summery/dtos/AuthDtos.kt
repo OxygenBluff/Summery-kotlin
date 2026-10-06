@@ -12,7 +12,7 @@ data class RegisterRequestDTO(
     val email: String,
     val password: String,
     val role: String = "CUSTOMER"
-    //sprong maps it to ENUM right ? RIGHT ?
+    //spring maps it to ENUM right ? RIGHT ?
 )
 
 data class AuthResponseDTO(

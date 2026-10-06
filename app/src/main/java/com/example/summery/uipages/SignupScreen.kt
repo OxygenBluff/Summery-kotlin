@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.example.summery.CustomTextField
 import com.example.summery.R
 import com.example.summery.ScreenTransition
+import com.example.summery.data.remote.api.parseErrorMessage
 import com.example.summery.local.EncryptedTokenManager
 import com.example.summery.network.RetrofitInstance
 import kotlinx.coroutines.delay
@@ -259,7 +260,7 @@ fun SignupScreen(
                                 //MAGIC part ! made it reusable boy was it complicated..
 
                                 //statusMessage = "Registration Failed: ${response.code()}"
-                                statusMessage = RetrofitInstance.parseErrorMessage(response)
+                                statusMessage = parseErrorMessage(response)
                                 isSuccessMessage = false
                             }
                         } catch (e: Exception) {

@@ -5,10 +5,18 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,30 +25,46 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -52,6 +76,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -59,14 +87,100 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
+import me.saket.telephoto.ExperimentalTelephotoApi
+import me.saket.telephoto.zoomable.OverzoomEffect
+import me.saket.telephoto.zoomable.Viewport
+import me.saket.telephoto.zoomable.ZoomSpec
+import me.saket.telephoto.zoomable.ZoomableState
+import me.saket.telephoto.zoomable.coil.ZoomableAsyncImage
+import me.saket.telephoto.zoomable.rememberZoomableImageState
+import me.saket.telephoto.zoomable.rememberZoomableState
+import me.saket.telephoto.zoomable.spatial.CoordinateSpace
+import kotlin.math.roundToInt
 
 
 //Google's default stuff is uh.. something..
 
+
+@Composable
+fun AppToast(
+    message: String,
+    isVisible: Boolean,
+    isError: Boolean = false,
+    modifier: Modifier = Modifier,
+    onDismiss: () -> Unit
+) {
+    LaunchedEffect(isVisible) {
+        if (isVisible) {
+            delay(2500)
+            onDismiss()
+        }
+    }
+
+    AnimatedVisibility(
+        visible = isVisible,
+
+        enter = slideInVertically(initialOffsetY = { it /2 })
+                + scaleIn(initialScale = 0.8f)
+                + fadeIn(),
+        // it <-> BELOW the screen start positive it
+        exit = slideOutVertically(targetOffsetY = { it })
+                + scaleOut(targetScale = 0.8f)
+                + fadeOut(),
+        modifier=modifier
+
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .heightIn(60.dp)
+                .clip(RoundedCornerShape(50.dp))
+                .background(Color.Black.copy(0.9f))
+                //.background(if (isError) Color(0xFFE56D6D) else Color(0xFF8AE18D))
+                .padding(horizontal = 16.dp, vertical=5.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = if (isError) Icons.Default.Error else Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    modifier=Modifier.weight(1f),
+                    text=message,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium)
+
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Close notification pop up",
+                    tint=white,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable {
+                            onDismiss()
+                        }
+
+                )
+            }
+        }
+    }
+}
 //1-Custom text input field
 
 @Composable
@@ -82,7 +196,16 @@ fun CustomTextField(
             keyboardType = KeyboardType.Text,
             imeAction = ImeAction.Search
             )
-            else  KeyboardOptions.Default
+            else  KeyboardOptions.Default,
+
+    //new > make it expandddd ! for reviews
+    maxLines: Int =1,
+    //color should also
+    color:Color= white.copy(0.7f),
+    //can add icon at the right ? then it needs a lambda as well
+    trailingIcon: @Composable ( () -> Unit)? =null
+    //IT CAN BE NULLABLE LMAOOOOO
+
 ){
     BasicTextField(
         //basic text field =  the ENGINE
@@ -91,6 +214,7 @@ fun CustomTextField(
         //just the bliking cursor is here btw
         value = value,
         onValueChange = onValueChange,
+        maxLines= maxLines, // yess
         modifier = modifier,
         textStyle= TextStyle(
             color = Color.Black,
@@ -117,10 +241,10 @@ fun CustomTextField(
             Row(
                 modifier= Modifier
                     .fillMaxWidth()
-                    .height(46.dp)
+                    .heightIn(46.dp)// heighIn instead of fixed height maybe
                     .clip(RoundedCornerShape(16.dp))
                     .background(
-                        color=Color(0xFFF6F6F2),
+                        color=color,//wasColor(0xFFF6F6F2).copy(0.7f)
 
                     )
                     //.border(1.dp, Color.Black.copy(alpha=0.08f), RoundedCornerShape(16.dp))
@@ -153,7 +277,7 @@ fun CustomTextField(
                     if (value.isEmpty()){
                         Text(
                             text = placeholder,
-                            color = Color.Black.copy(alpha = 0.3f),
+                            color = Color.Black.copy(alpha = 0.45f),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
                             fontFamily = FontFamily.SansSerif
@@ -161,6 +285,12 @@ fun CustomTextField(
                     }
                     innerTextField()
                     //Google also gave this to make it acctually work now..
+                }
+                //trailing iconnnn
+                if(trailingIcon!=null){
+                    Spacer(Modifier.width(8.dp))
+                    trailingIcon()
+                    //SO.. make it an icon button 2 IN ONE icon + lambda
                 }
             }
 
@@ -196,9 +326,9 @@ fun ScreenTransition(
     //->kotlin re-evalutaes THE ENTIRE function top to bottom
     //too much.. => DerivedStateOf instead!
 
-    val overllLoading by remember (isDataLoading){
-        derivedStateOf { isInitailLoading ||isDataLoading }
-    }
+    val overllLoading = isInitailLoading || isDataLoading
+    //TODO kotlin makes it UPDATE ON EITHER
+
     //->if the evaltion doesn't change (Eg: still true)
     //-> IT WILL NOT make the function get re-evaluated
     //only when the overall evulation changges!
@@ -215,7 +345,7 @@ fun ScreenTransition(
         //or just now..
         AnimatedVisibility(
             visible=overllLoading,
-            enter = fadeIn(animationSpec = tween(120)),// true -> false behaviour
+            enter = fadeIn(animationSpec = tween(70)),// true -> false behaviour
             exit = fadeOut(animationSpec=tween(80,easing= LinearEasing))
             //false -> true behaviour of the visible variable!
         ){
@@ -239,7 +369,7 @@ fun ScreenTransition(
         //2-the cotnent of this target screen revleaing itself
         AnimatedVisibility(
             visible=!overllLoading,
-            enter=fadeIn(animationSpec = tween(durationMillis = 120,easing=LinearEasing))
+            enter=fadeIn(animationSpec = tween(durationMillis = 70,easing=LinearEasing))
         ) {
             content()
             //BOOM! the conent of the ENTIRE page gets dropped here
@@ -314,6 +444,30 @@ fun CustomDropDownMenu(){
 
 }
 
+@Composable
+fun DialogMenu(
+    modifier: Modifier = Modifier,
+    onDismissRequest: () -> Unit,
+    content: @Composable () -> Unit,
+    //SLOT API but wth is dimiss doing there
+){
+
+
+        Dialog(onDismissRequest = onDismissRequest){
+            Surface(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(0.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFFE1E196),//parchment color lmao
+                tonalElevation = 0.dp
+            ){
+               content()
+            }
+        }
+
+}
+
 //TODO a horizontal pager is next! u just pass in the list of Composables, scrolling and dots indicators underneath are done for you!
 //TODO a super class that composables inherit from to make them like that animation when clicked ? the scale aniamte as float one
 
@@ -322,14 +476,23 @@ fun CustomDropDownMenu(){
 @Composable
 fun BottomSheet(
     onDismissRequest: () -> Unit,
-    modifier: Modifier= Modifier
+    modifier: Modifier= Modifier,
+    //inside
+    content: @Composable ColumnScope.() -> Unit,
+
+
 ){
     val isExpanded= rememberModalBottomSheetState(
-        skipPartiallyExpanded = false
+        skipPartiallyExpanded = false,
+
     )
 
+    //horizotal scroll naurr
+
     ModalBottomSheet(
-        onDismissRequest= onDismissRequest,
+        onDismissRequest= {
+            onDismissRequest ()
+        },
         sheetState = isExpanded,
         modifier = modifier,
 
@@ -338,12 +501,24 @@ fun BottomSheet(
 
         containerColor = Color(0xFFFDF489)
     ) {
-        Column(
-            modifier = Modifier
+        Box(
+            modifier=Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.75f)
-                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 20.dp)
-        ){
+                .pointerInput(Unit){
+                    //TODO INTERCEPTING DOWNWARD DRAG ? built in ? yessss
+
+                    detectDragGestures { change, _ ->
+                        change.consume() // Stops ModalBottomSheet from receiving the drag ??
+                    }
+                }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.75f)
+                    .padding(start = 2.dp, end = 2.dp, top = 8.dp, bottom = 20.dp)
+            ) {
+                /*
             Text(
                 text = "Select a filter",
                 fontSize = 20.sp,
@@ -351,14 +526,431 @@ fun BottomSheet(
                 color = Color.Black
             )
 
-            Text(
-                text="Oomf!",
-                modifier=Modifier.padding(top=8.dp),
-                fontSize = 14.sp,
-                color = Color.Black
-            )
-            //TODO FILTERS
+             */
+
+
+                content() //TODO WRITE THIS DOWN, "slot API pattern"
+            }
         }
 
     }
+}
+
+//slider ?
+@Composable
+fun slider(
+    selectedRange: ClosedFloatingPointRange<Float>,
+    min: Float =0f,
+    max: Float = 500f,
+
+
+
+    onRangeChangeFinished: (ClosedFloatingPointRange<Float>) -> Unit
+){
+    var sliderPos by remember(selectedRange) { mutableStateOf(selectedRange) }
+
+    var isDragging by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 18.dp )
+
+    ){
+        Row(
+            modifier=Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ){
+            Text(
+                text = "Price Range",
+                color=Color.Black,
+                fontWeight = FontWeight.SemiBold,
+
+            )
+            Text(
+                text="${sliderPos.start.roundToInt()} TND - ${sliderPos.endInclusive.roundToInt()} TND",
+                fontWeight = FontWeight.SemiBold,
+                color=Color.Black
+            )
+        }
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            RangeSlider(
+                value = sliderPos,
+                onValueChange = { newRange ->
+
+                    sliderPos = newRange
+                },
+                valueRange = min..max,
+                onValueChangeFinished = {
+                    onRangeChangeFinished(sliderPos)
+                    //ONLY when fingers lifted off screen NO API SPAM
+
+
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top=6.dp)
+                ,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.Black,
+                    activeTrackColor = Color.Black,
+                    inactiveTrackColor = Color.Black.copy(0.7f)
+
+                ),
+                //LEMONI ?
+                startThumb = {
+
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_lemon),
+                            contentDescription = "Price range thumb",
+                            tint = Color.Black,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .wrapContentSize(unbounded = true)
+                        )
+
+                },
+
+                endThumb = {
+
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_lemon),
+                        contentDescription = "Price range thumb",
+                        tint = Color.Black,
+                        modifier =  Modifier
+                            .size(18.dp)
+                            .wrapContentSize(unbounded = true)
+                    )
+
+                }
+
+
+            )
+        }
+    }
+}
+
+
+//not range slider
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CustomSlider(
+    rating: Float?,
+    onRatingChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = 1f..5f,
+    steps: Int = 7,
+    //hmm
+    onRatingReset:()-> Unit
+){
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 18.dp )
+
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Minimum Rating",
+                color = Color.Black,
+                fontWeight = FontWeight.SemiBold
+            )
+            //Slider doesn't accept nullable stuff ..
+            //?.let strikes again
+            Row(
+
+            ) {
+                Text(
+                    text = rating?.let { "${it}" } ?: "Any",
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Black
+                )
+                //what about.. animated visibility for a button to reset back to null ?? ooh
+                AnimatedVisibility(
+                    visible=rating != null
+                ) {
+                    IconButton(
+                        onClick = onRatingReset,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            tint=Color.Gray,
+                            contentDescription = "Clear minimum rating filter for products",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
+            }
+        }
+            Slider(
+                value = rating?:1f,
+                onValueChange = onRatingChange,
+                valueRange = valueRange,
+                steps = steps,
+                modifier = modifier,
+                thumb = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_lemon),
+                        contentDescription = "Price range thumb",
+                        tint = Color.Black,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .wrapContentSize(unbounded = true)
+                    )
+                },
+                colors = SliderDefaults.colors(
+                    activeTrackColor = Color.Black,
+                    inactiveTrackColor = Color.Black.copy(0.7f),
+                    activeTickColor = Color.Transparent,
+                    inactiveTickColor = Color.Transparent
+                )
+            )
+        }
+
+}
+
+
+//RE USABLE! chip -> can be either display only or clickable pass lambda
+@Composable
+fun CustomChip(
+    modifier: Modifier = Modifier,
+    label: String,
+    selectable: Boolean = false, //by default just display
+    selected: Boolean = false, // for the fitlers ones , is it selected already by deafult already ?
+    icon: ImageVector? = null,
+    //TINT for the icon
+    iconTint:Color= if(selected)Color.Yellow else Color.Gray,
+
+    //deisgn
+    ContainerColor: Color = white, //for both ?
+    LabelColor :Color = Color.Black, // also for both.
+    SelectedContainerColor: Color = white,
+    SelectedIconColor : Color = white,
+    SelectedLabelColor: Color = Color.Black,
+
+    onClick: () -> Unit = {}
+){
+
+    //colros for category chips -> assitive only
+    val categoryColors = mapOf(
+        "cold" to Color(0xFF90CAF9),
+        "hot" to Color(0xFFEF9A9A),
+        "fresh" to Color(0xFFA5D6A7),
+        "tropical" to Color(0xFFFFCC80)
+    )
+
+
+    if (selectable){
+        //selectable -> change color = onClick
+        FilterChip(
+            selected = selected,
+            onClick = onClick,
+            label= {Text(
+                text=label,
+                fontWeight = FontWeight.SemiBold
+            )},
+
+
+            //NO BORDER GOOGLE NO
+            border = FilterChipDefaults.filterChipBorder(
+                enabled = true,
+                selected = selected,
+                borderColor = Color.Transparent,
+                selectedBorderColor = Color.Transparent
+            ),
+
+            leadingIcon = if (icon!=null){
+                {
+                    Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp),tint=iconTint )
+                }
+            }else null,
+
+            shape = RoundedCornerShape(50.dp),
+            colors= FilterChipDefaults.filterChipColors(
+                containerColor = ContainerColor,
+                labelColor = LabelColor, //UNSELECTED TEXT!
+                selectedContainerColor = SelectedContainerColor,
+                selectedLabelColor = SelectedLabelColor,
+                selectedLeadingIconColor = SelectedIconColor,
+            ),
+            modifier = modifier
+
+        )
+    }else {
+        //Non selectable just for display
+        //also has the same onClick btw
+
+        //color matches map ?
+        val containerColor = categoryColors[label.lowercase()]
+            ?: white
+
+        AssistChip(
+            onClick = onClick,
+            label = { Text(label)},
+            leadingIcon = if (icon != null){
+                {
+                    Icon(imageVector = icon,
+                        contentDescription = null,
+                        modifier= Modifier.size(16.dp)
+                    )
+                }
+            }else null,
+            shape=RoundedCornerShape(50.dp),
+            colors= AssistChipDefaults.assistChipColors(
+                containerColor = containerColor,
+                labelColor =LabelColor
+            ),
+            border=null,
+            modifier = Modifier
+        )
+    }
+}
+
+//Horizontal pager
+@Composable
+fun productImagesCarousel(productImages: List<String>){
+    if(productImages.isEmpty()) return
+
+    val pagerState = rememberPagerState( pageCount = {productImages.size})
+    Box(
+        modifier= Modifier
+            .fillMaxWidth()
+            //.padding(16.dp)
+            .height(400.dp)
+            .background(Color.Black.copy(0.15f)),
+    ){
+
+        var showFullscreenViewer by remember { mutableStateOf(false) }
+        var initialPage by remember { mutableStateOf(0) }
+
+        //it has a zoomFraction variable.. null if not zoomed so. defaultting to 0f pls
+        HorizontalPager(
+            state=pagerState,
+            modifier= Modifier.fillMaxSize(),
+            beyondViewportPageCount = 1
+        ) { page ->
+
+            AsyncImage(
+                model=productImages[page], // page is the index bruhh
+                contentDescription = "Product image number $page",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable {
+                        initialPage = page
+                        showFullscreenViewer = true
+                    }
+
+            )
+        }
+
+        //D O T
+        Row (
+            modifier= Modifier
+                .align(Alignment.BottomCenter)
+                .padding(12.dp)
+                .wrapContentSize(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ){
+            repeat (productImages.size){ iteration ->
+
+                val isSelected = pagerState.currentPage == iteration
+
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color=if(isSelected) Color.Black.copy(0.8f) else Color.Black.copy(0.3f),
+                            shape= CircleShape
+                        )
+                        .size(6.dp)
+                )
+            }
+        }
+        //Dialog for stupid image zooming
+        if (showFullscreenViewer){
+            Dialog(
+                onDismissRequest = {showFullscreenViewer=false },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false
+                )
+            ){
+                Box(
+                    Modifier.fillMaxSize()
+                        .background(Color.Black.copy(0.3f))
+                ){
+                    val fullScreenPagerState = rememberPagerState (
+                        initialPage= initialPage,
+                        pageCount = { productImages.size}
+                    )
+                    var activeZoomableState by remember {   mutableStateOf<ZoomableState?>(null) }
+                    val pagerScrollEnabled by remember {
+                        derivedStateOf { (activeZoomableState?.zoomFraction ?: 0f) ==0f }
+                    }
+
+                    HorizontalPager(
+                        state=fullScreenPagerState,
+                        userScrollEnabled = pagerScrollEnabled,
+                        modifier=Modifier.fillMaxSize(),
+                        beyondViewportPageCount = 1
+
+                    ) { page ->
+                        val zoomableState = rememberZoomableState(
+                            //animation when max zoo mreached ?
+                            zoomSpec = ZoomSpec(
+                                maxZoomFactor = 2f,
+                                overzoomEffect = OverzoomEffect.RubberBanding
+                            )
+                        )
+                        //-> the generic zoom one ?
+                        //-> just tracs scale offset.. DOES NOT know iamge or otherstuff jsut math
+
+                        val imageState = rememberZoomableImageState(zoomableState)
+                        //->adds image specific stuff to it  like min max bounds states..
+
+                        LaunchedEffect(fullScreenPagerState.settledPage) {
+                            if(fullScreenPagerState.settledPage == page){
+                                activeZoomableState = zoomableState
+                            }else {
+                                zoomableState.resetZoom(withAnimation = false)
+                            }
+                        }
+
+
+                        @OptIn(ExperimentalTelephotoApi::class)
+                        ZoomableAsyncImage(
+                            model = productImages[page],
+                            contentDescription = "Product image number $page",
+                            state = imageState,
+                            contentScale = ContentScale.Fit,
+                            onClick = { clickedAt ->
+                                val isZoomed = (zoomableState.zoomFraction ?: 0f) >0f
+                                if (!isZoomed){
+                                    val imageBounds = with (zoomableState.coordinateSystem){
+                                        contentBounds.rectIn(CoordinateSpace.Viewport)
+                                    }
+                                    if (!imageBounds.contains(clickedAt)){
+                                        showFullscreenViewer =false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize(),
+
+                            )
+
+                    }
+                }
+            }
+        }
+    }
+
+
 }

@@ -74,6 +74,7 @@ class AuthViewModel(
                         _isSuccessMessage.value=true
                         _statusMessage.value="Welcome Back!"
                         _navigateToHome.value=true //!
+
                     }else{
                         _statusMessage.value = "Security error: Access verification failed."
                         _isSuccessMessage.value = false
@@ -82,16 +83,19 @@ class AuthViewModel(
             }
                 .onFailure { exception ->
                 //ApiCall already returns it..
-                _statusMessage.value=exception.message ?: "An Unexpcted Error occurred"
-                    //still wants me to handle the null oh kotlin u..
-                //aha the ?: nice!
+                _statusMessage.value=exception.message ?: "An Unexpected Error occurred"
+
                 _isSuccessMessage.value=false
             }
             _isLoading.value=false
 
 
-
         }
+    }
+
+    //clear ittt
+    fun clearStatusMessage(){
+        _statusMessage.value=""
     }
 
     //restting navigation flag after transitioning

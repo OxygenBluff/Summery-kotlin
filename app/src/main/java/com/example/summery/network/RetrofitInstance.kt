@@ -1,33 +1,32 @@
 package com.example.summery.network
 
 import android.content.Context
-import android.util.Log
 import com.example.summery.data.ApiService
+import com.example.summery.data.remote.interceptors.AuthInterceptor
+import com.example.summery.data.remote.interceptors.TokenAuthenticator
 import com.example.summery.local.EncryptedTokenManager
-import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import kotlinx.serialization.Serializable
 import okhttp3.Cache
-import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.converter.scalars.ScalarsConverterFactory
 import java.io.File
-import java.io.IOException
+
+
+//TODO NOT RECOMMENDED TO APP NAVHOST HERE
+//THIS retrofit = initialized once and lives forever navhost different so..
+//shared flow ?
+
+
 
 //objcet not the java one!!
 //kotlin objcet = SINGLETON! a class that can only have ONE SINGLE instance EVER!
 // + ALSO no need to intialize it ever WOW
 //like a static method in ajav just call it deirectly
 object RetrofitInstance {
-    private const val BASE_URL ="http://192.168.1.101:8082"   //10.0.2.2 is how android knows the localhost huh..
-    // http://192.168.1.115:8082/"
-    //"https://summery2.onrender.com/" THIS is the render one btw
-
-    //no more "https://summery-api-1.onrender.com/"
-
-    //ApiService , it's using it.. api will be of type ApiService
+    public const val BASE_URL ="http://192.168.1.57:8082"   //10.0.2.2 is how android knows the localhost huh..172.16.13.211
 
     lateinit var tokenManager: EncryptedTokenManager
     //wth.. TODO
@@ -44,22 +43,21 @@ object RetrofitInstance {
         //gets from this variable i guess
         val builder = OkHttpClient.Builder()
             .addInterceptor (AuthInterceptor(tokenManager))
+            .authenticator (TokenAuthenticator(tokenManager))
 
-        // ** IF initCache  -> add some E-tag cache size 10MB ?
-        //TODO let -> executes a bloc of code on an OBJCET -> referenced as it
-        //TODO -> returns the result of the LAST EXPRESSION in the bloc
-        //TODO let? -> run only if the OBJCET IS NOT NULL WOWO WRITE IT DOWNNNN ***
 
-        Log.d("CACHE_DEBUG", "okHttpClient lazy block is FIRING! Checking appContext...")
 
-        appContext?.let {context ->
-            Log.d("CACHE_DEBUG", "🎉 SUCCESS: appContext is NOT null! Building cache...")
-            val cacheSize = 10*1024*1024L
-            val cacheDirectory = File(context.cacheDir, "http_cache")
-            builder.cache(Cache(cacheDirectory,cacheSize))
-        } ?: run {
-            Log.e("CACHE_DEBUG", "❌ CRITICAL: appContext is NULL! Cache block was completely SKIPPED!")
+        //cache
+        appContext?.let { context ->
+            val cacheSize = 10L * 1024L * 1024L // 10MB
+            val cache = Cache(
+                directory = File(context.cacheDir, "http_cache"),
+                maxSize = cacheSize
+            )
+            builder.cache(cache)
         }
+
+
         builder.build()
     }
 
@@ -80,6 +78,7 @@ object RetrofitInstance {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
+            .addConverterFactory(ScalarsConverterFactory.create())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(ApiService::class.java)//actually writes all the HTTP code automatically..
@@ -87,92 +86,9 @@ object RetrofitInstance {
         //.create creates a real implementations from the retrofit interface!
     }
 
-    //RE USABLE! yes
-    fun parseErrorMessage(response: Response<*>): String {
-        // <*> = i don't care about the type
-        //WHY ?
-        //-> Error are UNPREDICTABLE !! sometimes nothing, sometones json soemtimes text!
-
-        val errorJsonString = response.errorBody()?.string()
-        //errorBody returns a ResponseBody objcet
-        //like a pipe flowing not text !!
-        //? = safe call operator, null it nothing ISNTEAD OF CRASHING THE APP
-        // !! IMPORTANT !!
-
-        //then why .string ? -> takes the flow and in a text sealed finally !
-        //I/O operation = slow over network :)
-
-        if(!errorJsonString.isNullOrBlank()){
-            //wth is blank ? -> ee or a bunch of white spaces ! "   "
-            //wow.. so much stuff
-            try{
-                val gson = Gson()
-
-                //errorJsonString is json -> need to become an objcet!
-                //gson.fromJson is the translator !
-                //give it the jsonError
-                //BUT also need to point it towards the data class blueprint O: =>  ApiErrorDTO::class.java
-                val errorResponse = gson.fromJson(errorJsonString,ApiErrorDTO::class.java)
-                return errorResponse.errorMessage
-                //NOW fianlly can use the objcet dot notation !!
-                //and return it :)
-
-            }catch(e: Exception){
-                return "Unexpected Error: ${response.code()}"
-            }
-
-        }
-        return "Network Error: ${response.code()}"
-        //what is the errorJsonString was null / empty ! no if !
-    }
-
-
-}
-
-//inerceptor.. tokens
-class AuthInterceptor(private  val tokenManager: EncryptedTokenManager): Interceptor {
-    @Throws(IOException::class)
-    //java needs this for network calls or try catch..
-    override  fun intercept (chain: Interceptor.Chain): okhttp3.Response {
-        val originalRequest = chain.request()
-
-        val token = tokenManager.getAccessToken()
-
-        //1- no token -> signup or login only
-        if(token.isNullOrBlank()){
-            return chain.proceed(originalRequest)
-        }
-        //else injcet bearer
-        val authenticatedRequest = originalRequest.newBuilder()
-            .header("Authorization","Bearer $token")
-            .build()
-
-        return chain.proceed(authenticatedRequest)
-    }
 }
 
 
-//FINALLY  a U N I F I E D api safe call method: injects tokens AND uses the parseErorr method!
-
-suspend fun <T> ApiCall(apiCall: suspend () -> Response<T>): Result<T> {
-    return try {
-        val response= apiCall()
-
-        if(response.isSuccessful && response.body()!=null) {
-            Result.success(response.body()!!)
-        }else{
-            val errorMessage = RetrofitInstance.parseErrorMessage(response)
-            Result.failure(Exception(errorMessage))
-        }
-
-    } catch(e:Exception){
-        val exceptionSafeMessage =
-            //hmm ? TODO maybe just filter java's backend ones that reveal IP
-            "Seems like we can't reach the server at this moment.."
-        Result.failure(Exception(exceptionSafeMessage))
-    }
-
-}
 
 //Error ones DO NOT get returned by RetroFit wait 0.0
 //does NOT parse errorBody() in erorr cases wow
@@ -186,8 +102,15 @@ data class ApiErrorDTO(
 
 data class PageResponse<T>(
     val content: List<T>,
+
+    val empty: Boolean,
+    val first: Boolean,
+    val last: Boolean,
+
     val totalPages: Int,
     val totalElements: Long,
+    val numberOfElements: Int,
+
     val size: Int,
     val number: Int // Current page index !!
 )
@@ -212,11 +135,28 @@ data class ProductResponseDTO(
 
     val images: List<String>, // URLs lmao i forgot strings
 
+    //missing
+    @SerializedName("dateCreation")
+    val CreationDate: String?, //JSON GIVE STRINGGG
+
+
+    val variants: List<VariantDTO>, //TODO create DTO.. 0.0
+
+    val customizations: List<CustomizationDTO>, //TODO
+
+    val reviews: List<ReviewDTO>, //TODO
+
+    @SerializedName("noteMoyenne")
+    val averageRating: Float?,
+
     //seller + description ??
     val description: String,
-    val seller: String, // TODO , yikes a seller DTO .. 0.0
+    val sellerId: Long?, // TODO , yikes a seller DTO .. 0.0
 
-    val categories:List<CategoryDTO>
+    val categories:List<CategoryDTO>,
+
+    //new
+    val lowestPrice:Double
 
 )
 
@@ -226,8 +166,177 @@ data class CategoryDTO(
     @SerializedName("nom")
     val name: String,
 
-    val description: String
+    val description: String,
+    //sub categories even tho won't be used i THINK
+    @SerializedName("sousCategories")
+    val subCategories: List<CategoryDTO> = emptyList()
 )
+
+@Serializable
+data class VariantDTO(
+    val id: Long,
+    @SerializedName("attribut")
+    val attribute: String,
+
+    @SerializedName("valeur")
+    val value: String,
+
+    @SerializedName("prixDelta")
+    val priceDelta: Double ?, //can be the same !! so null cosnsistent not 0
+
+    @SerializedName("stockSupplementaire")
+    val Stock: Int?,
+
+    //hmm
+    val mandatory: Boolean = false,
+
+    //image
+    val imageUrl: String
+
+)
+
+@Serializable
+data class CustomizationDTO(
+    val id: Long,
+    val name: String,
+    val extraPrice: Double?,
+    val available: Boolean
+)
+
+@Serializable
+data class ReviewDTO(
+    val id: Long,
+    @SerializedName("note")
+    val rating: Int?,
+
+    @SerializedName("commentaire")
+    val comment: String?,
+
+    val customerName: String?,
+    val dateCreation: String?,
+    val approuve: Boolean
+)
+
+//cart stuff
+data class CartDTO(
+    val id: Long,
+    val items: List<CartItemDTO>,
+    val totalCartPrice: Double,
+    val appliedCouponCode: String?,
+    val discountAmount: Double,
+    val finalPrice: Double
+)
+
+data class CartItemDTO(
+    val id: Long,
+    val productName: String,
+    val variantNames: List<String> = emptyList(),
+    val unitPrice: Double,
+    val quantity: Int,
+    val subTotal: Double,
+    val imageUrl: String?,
+    val customizations: List<CustomizationDTO>,
+    // 💀 No i'm actually done
+    val branchId: Long,
+)
+
+// ://
+data class AddToCartRequestDTO(
+    val productId: Long,
+    val variantIds: List<Long>,
+    val quantity: Int,
+    val customizationIds: List<Long>
+)
+
+//post review FINALLY
+data class ReviewRequestDTO(
+    @SerializedName("note")
+    val rating: Int,
+    @SerializedName("commentaire")
+    val comment: String?,
+    val productId: Long
+)
+
+data class ReviewResponseDTO(
+    @SerializedName("id")
+    val ProductId: Long,
+    @SerializedName("note")
+    val rating: Int,
+    @SerializedName("commentaire")
+    val comment: String?,
+    val customerName: String,
+    @SerializedName("dateCreation")
+    val creationDate: String,
+    @SerializedName("approuve")
+    val approved: Boolean =false
+)
+
+//change cart item qty
+data class CartChangeQuantityRequest(
+    val quantity: Int
+)
+
+//coupon
+data class CouponRequestDTO(
+    val code:String
+)
+
+
+//Addresses
+data class AddressResponseDTO(
+    //huh no DTO in backend nice or not nice!
+    val id: Long?,
+    @SerializedName("rue")
+    val street: String,
+    @SerializedName("ville")
+    val city: String,
+    @SerializedName("codePostal")
+    val postalCode: String,
+    @SerializedName("pays")
+    val country: String,
+    val principal: Boolean = false
+)
+
+//we go again! part 2
+data class BranchResponseDTO(
+    val id: Long,
+
+    val name: String,
+    val description: String?,
+    val logo: String?,
+
+    val address: String?,
+    val city: String?,
+
+    val latitude: Double?,
+    val longitude: Double?,
+
+    val phone: String?,
+    val email: String?,
+
+    val openingTime: String?,
+    val closingTime: String?,
+
+    val active: Boolean,
+    val rating: Double?,
+
+    //staff list ? nahh
+    //products list ? hmm but won't fetch it at the start tho..
+    //added it JUST IN CASE i use it
+
+    val products: List<ProductResponseDTO>? = null
+
+)
+
+//ORDER ITEM
+
+
+
+
+
+
+
+
 
 
 

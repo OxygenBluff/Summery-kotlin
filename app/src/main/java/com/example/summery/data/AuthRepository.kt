@@ -3,9 +3,10 @@ package com.example.summery.data
 import AuthResponseDTO
 import LoginRequestDTO
 import RegisterRequestDTO
+import com.example.summery.data.remote.api.ApiCall
+import com.example.summery.data.remote.api.parseErrorMessage
 import com.example.summery.local.EncryptedTokenManager
-import com.example.summery.network.ApiCall
-import com.example.summery.network.RetrofitInstance.parseErrorMessage
+
 import retrofit2.Response
 
 class AuthRepository(
