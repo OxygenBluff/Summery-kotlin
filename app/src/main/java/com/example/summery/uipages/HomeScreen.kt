@@ -637,7 +637,8 @@ fun FeaturedCarousel(
                         ) {
                             //discount %
                             val percentage =
-                                (1 - (featuredProducts[page].DiscountedPrice!! / featuredProducts[page].price) * 100).toInt()
+                            ((1.0 - (featuredProducts[page].DiscountedPrice!! / featuredProducts[page].price)) * 100).toInt()
+
                             //i mean it SHOULD be discounted if it exists in this list lmao
 
                             Box(

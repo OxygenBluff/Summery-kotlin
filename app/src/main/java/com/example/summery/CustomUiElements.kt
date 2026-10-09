@@ -744,8 +744,10 @@ fun CustomChip(
     val categoryColors = mapOf(
         "cold" to Color(0xFF90CAF9),
         "hot" to Color(0xFFEF9A9A),
-        "fresh" to Color(0xFFA5D6A7),
-        "tropical" to Color(0xFFFFCC80)
+        "probiotic" to Color(0xFFA5D6A7),
+        "sparkling" to Color(0xFFFFCC80),
+        "vitamin c" to Color(0xFFF585A5),
+        "limited edition" to Color(0xFF733FC4)
     )
 
 

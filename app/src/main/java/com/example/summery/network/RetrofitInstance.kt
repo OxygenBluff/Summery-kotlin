@@ -26,7 +26,7 @@ import java.io.File
 // + ALSO no need to intialize it ever WOW
 //like a static method in ajav just call it deirectly
 object RetrofitInstance {
-    public const val BASE_URL ="http://192.168.1.57:8082"   //10.0.2.2 is how android knows the localhost huh..172.16.13.211
+    public const val BASE_URL ="http://172.16.13.68:8082"   //10.0.2.2 is how android knows the localhost huh..172.16.13.211
 
     lateinit var tokenManager: EncryptedTokenManager
     //wth.. TODO

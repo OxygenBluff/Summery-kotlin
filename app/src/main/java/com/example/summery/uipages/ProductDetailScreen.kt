@@ -272,9 +272,14 @@ fun ProductDetailScreen(
                                     //rating
 
                                     //not elivs.. IF rating not null -> format it ELSE (the let one) -> ?: N/A
+                                    //if(product.averageRating? == 0.0)
                                     val formattedRating = product.averageRating?.let {
                                         String.format("%.1f", it)
                                     } ?: "N/A"
+
+                                    val actualFinalRating = if(formattedRating=="0.0") "N/A" else formattedRating
+                                    //TODO why is the baseline 0 in the backend..
+
 
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -283,7 +288,7 @@ fun ProductDetailScreen(
                                             .alignByBaseline()
                                     ) {
                                         Text(
-                                            text = "${formattedRating}",
+                                            text = "${actualFinalRating}",
                                             fontSize = 18.sp,
                                             fontWeight = FontWeight.Medium,
                                             color = Color.DarkGray,
@@ -292,7 +297,7 @@ fun ProductDetailScreen(
                                         Image(
                                             painter = painterResource(id = R.drawable.ic_lemon),
                                             contentDescription = null,
-                                            modifier = Modifier.size(20.dp),
+                                            modifier = Modifier.size(27.dp),
                                         )
                                     }
                                 }//end of name + rating
@@ -310,7 +315,7 @@ fun ProductDetailScreen(
                                             selected = false,
                                             icon = null, //TODO map of icons ?
                                             ContainerColor = white,
-                                            LabelColor = white,
+                                            LabelColor = Color.Black,
                                             onClick = {}
                                         )
                                     }
@@ -886,14 +891,15 @@ fun ProductVariantsHandlerV2(
                     shape = RoundedCornerShape(20.dp),
                     color = white.copy(0.7f),
                     modifier = Modifier
-                        .padding( vertical = 4.dp,)
+                        .padding( vertical = 5.dp,)
                 ) {
                     Column(
-                        modifier=Modifier.padding(horizontal = 16.dp, vertical=8.dp)
+                        modifier=Modifier
+                            .padding(horizontal = 16.dp, vertical=12.dp),
                     ) {
 
                         Text(
-                            text ="${attribute} Options",
+                            text ="${attribute} options",
                             style = MaterialTheme.typography.titleMedium,
                             //fontWeight = FontWeight.SemiBold,
                             //fontSize = 22.sp,
@@ -919,16 +925,20 @@ fun ProductVariantsHandlerV2(
                                         .clickable {
                                             selectedVariants[attribute] = variant
                                         }
-                                        .padding(10.dp)
+                                        .padding(12.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
                                         SubcomposeAsyncImage(
                                             model = variant.imageUrl,
                                             contentDescription = variant.value,
                                             contentScale = ContentScale.Fit,
                                             modifier = Modifier
-                                                .width(80.dp)
-                                                .height(115.dp)
+                                                .width(65.dp)
+                                                .height(100.dp)
                                                 .clip(
                                                     RoundedCornerShape(
                                                         20.dp
@@ -964,7 +974,8 @@ fun ProductVariantsHandlerV2(
                                             text = variant.value,
                                             fontSize = 12.sp,
                                             color=Color.Black,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+
                                         )
                                     }
                                 }
@@ -1019,7 +1030,7 @@ fun AddReviewCard(
                         painter = painterResource(id = R.drawable.ic_lemon),
                         contentDescription = "Rate $i",
                         modifier = Modifier
-                            .size(26.dp)
+                            .size(27.dp)
                             .clickable { selectedRating = i },
                         colorFilter = ColorFilter.tint(
                             if (i <= selectedRating) Color(0xFFE8D755)
